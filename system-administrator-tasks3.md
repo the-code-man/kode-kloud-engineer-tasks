@@ -4,6 +4,7 @@
 - [Task 35 - Install and Configure NFS Server](#install-and-configure-nfs-server)
 - [Task 36 - Linux Process Troubleshooting](#linux-process-troubleshooting)
 - [Task 37 - IPtables Installation And Configuration](#iptables-installation-and-configuration)
+- [Task 38 - Install and Configure SFTP](#install-and-configure-sftp)
 
 ## PAM Authentication For Apache
 
@@ -276,4 +277,74 @@ systemctl status iptables
 curl -I stapp01:8084
 curl -I stapp02:8084
 curl -I stapp03:8084
+```
+
+## Install and Configure SFTP
+
+Some of the developers from **Nautilus** project team have asked for SFTP access to at least one of the app server in **Stratos DC**. After going through the requirements, the system admins team has decided to configure the SFTP server on **App Server 3** server in **Stratos Datacenter**. Please configure it as per the following instructions:
+
+a. Create an SFTP user **rose** and set its password to **8FmzjvFU6S**.
+
+b. Password authentication should be enabled for this user.
+
+c. Set its ChrootDirectory to **/var/www/nfsshare**.
+
+d. SFTP user should only be allowed to make SFTP connections.
+
+### Solution
+
+```bash
+# SSH into App server 3 and switch to root user
+ssh banner@stapp03
+
+sudo su -
+
+# Add user and set the provided password
+useradd rose
+
+passwd
+# Once prompted, provide the given password 8FmzjvFU6S
+
+# Check if root directory exists. If not create it
+ll /var/www/nfsshare
+ll /var/www
+
+mkdir -p /var/www/nfsshare
+
+# Edit sshd config for enabling allow user rose to make only SFTP connections
+# 1. Comment out the default Subsystem config that allows ssh connections
+# Subsystem    sftp    /usr/libexec/openssh/sftp-server
+# 2. Add the configuration for allowing sftp connections only
+# Below directive tells sshd to use the SFTP server code built-into the sshd, instead of running another process. In our case
+# the file transfer daemon.
+Subsystem sftp internal-sftp
+# 3. Add the following configuration after Subsystem config
+Match User rose  # Instructs the system to apply the below commands to user rose. We can also use Match Group directive. 
+    ForceCommand internal-sftp  # Upon login, this command causes the system to run the internal-sftp process
+    PasswordAuthentication yes  # Will ask for password, during logon
+    ChrootDirectory /var/www/nfsshare   #Chroot set to /var/www/nfsshare
+    PermitTunnel no         # Disallows VPN connections via SSH
+    AllowAgentForwarding no # Prevents ssh connection. Must be set to yes for ssh to work
+    AllowTcpForwarding no   # This one disables TCP forwarding and limits exposing other internal applications to the user.
+    X11Forwarding no    # This disables X11 forwarding for the current user and limits her from executing graphical interface programs through SSH.
+
+# Make sure chroot directory is owned by root. This includes sub-folders as well.
+chown root /var/www/nfsshare
+chown root /var/www
+chown root /var
+
+# Any other group or users should not have write permissions
+chmod 755 /var/www/nfsshare
+chmod 755 /var/www
+chmod 755 /var
+
+# Restart sshd service to apply the configuration
+systemctl restart sshd && systemctl status sshd
+
+# Verify
+sftp rose@localhost
+# Should establish a successful connection with sftp prompt
+
+ssh rose@localhost
+# Deny the connection
 ```
