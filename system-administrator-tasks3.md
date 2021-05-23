@@ -5,7 +5,7 @@
 - [Task 36 - Linux Process Troubleshooting](#linux-process-troubleshooting)
 - [Task 37 - IPtables Installation And Configuration](#iptables-installation-and-configuration)
 - [Task 38 - Install and Configure SFTP](#install-and-configure-sftp)
-- [Task 39 - Install and Configure PostgreSQL](install-and-configure-postgresql)
+- [Task 39 - Install and Configure PostgreSQL](#install-and-configure-postgresql)
 
 ## PAM Authentication For Apache
 
