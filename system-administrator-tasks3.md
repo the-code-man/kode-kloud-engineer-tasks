@@ -5,6 +5,7 @@
 - [Task 36 - Linux Process Troubleshooting](#linux-process-troubleshooting)
 - [Task 37 - IPtables Installation And Configuration](#iptables-installation-and-configuration)
 - [Task 38 - Install and Configure SFTP](#install-and-configure-sftp)
+- [Task 39 - Install and Configure PostgreSQL](install-and-configure-postgresql)
 
 ## PAM Authentication For Apache
 
@@ -347,4 +348,64 @@ sftp rose@localhost
 
 ssh rose@localhost
 # Deny the connection
+```
+
+## Install and Configure PostgreSQL
+
+The **Nautilus** application development team has shared that they are planning to deploy one newly developed application on **Nautilus** infra in **Stratos DC**. The application uses PostgreSQL database, so as a pre-requisite we need to set up PostgreSQL database server as per requirements shared below:
+
+a. Install and configure PostgreSQL database on **Nautilus** database server.
+
+b. Create a database user **kodekloud_tim** and set its password to **LQfKeWWxWD**.
+
+c. Create a database **kodekloud_db4** and grant full permissions to user **kodekloud_rin** on this database.
+
+d. Make appropriate settings to allow all local clients (local socket connections) to connect to the **kodekloud_db4** database through **kodekloud_tim** user using **md5** method (**Please do not try to encrypt password with md5sum**).
+
+e. At the end its good to test the db connection using these new credentials from **root** user or server sudo user.
+
+### Solution
+
+```bash
+# SSH into db server
+ssh peter@stdb01
+
+# Install PostgreSQL
+sudo yum install -y postgresql-server postgresql-contrib
+
+# Initialize the database
+sudo postgresql-setup initdb
+
+# Start PostgreSQL service and enable it to start at boot (optional)
+sudo systemctl start postgresql && sudo systemctl enable postgresql && sudo systemctl status postgresql
+
+# Switch to PostgreSQL client Shell
+sudo -u postgres psql
+
+# Run following commands in the PostgreSQL client shell
+CREATE USER kodekloud_tim WITH PASSWORD 'LQfKeWWxWD';       # Creating database user as per requirement
+
+CREATE DATABASE kodekloud_db4 OWNER kodekloud_tim;          # Creating database as per requirement
+
+GRANT ALL PRIVILEGES ON DATABASE kodekloud_db4 to kodekloud_tim;    # Grant permission to the user as per requirement
+
+# Exit from PostgreSQL client shell
+\q
+
+# To meet requirement d., we have to modify pg_hba.conf config file, which controls the client authentication
+vi /var/lib/pgsql/data/pg_hba.conf
+
+# Change auth-method of local and host to md5
+local all all 		   md5
+host all all 127.0.0.1/32 md5
+
+# Restart PostgreSQL for changes to take effect.
+sudo systemctl restart postgresql && systemctl status postgresql
+
+# Verification
+psql -U kodekloud_tim  -d kodekloud_db4 -h 127.0.0.1 -W
+psql -U kodekloud_tim  -d kodekloud_db4 -h localhost -W
+
+## In both cases, you will be prompted for password and once authentication is successful, you will land on the PostgreSQL 
+## client shell with database set as default.
 ```
