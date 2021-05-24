@@ -6,6 +6,7 @@
 - [Task 37 - IPtables Installation And Configuration](#iptables-installation-and-configuration)
 - [Task 38 - Install and Configure SFTP](#install-and-configure-sftp)
 - [Task 39 - Install and Configure PostgreSQL](#install-and-configure-postgresql)
+- [TASK 40 - Install and Configure Tomcat Server](#install-and-configure-tomcat-server)
 
 ## PAM Authentication For Apache
 
@@ -408,4 +409,57 @@ psql -U kodekloud_tim  -d kodekloud_db4 -h localhost -W
 
 ## In both cases, you will be prompted for password and once authentication is successful, you will land on the PostgreSQL 
 ## client shell with database set as default.
+```
+
+## Install and Configure Tomcat Server
+
+The **Nautilus** application development team recently finished the beta version of one of their Java-based applications, which they are planning to deploy on one of the app servers in **Stratos DC**. After an internal team meeting, they have decided to use the **tomcat** application server. Based on the requirements mentioned below complete the task:
+
+a. Install **tomcat** server on **App Server 1** using **yum**.
+
+b. Configure it to run on port **5001**.
+
+c. There is a **ROOT.war** file on **Jump host** at location **/tmp**. Deploy it on this tomcat server and make sure the webpage works directly on base URL i.e without specifying any sub-directory anything like this **http://URL/ROOT**.
+
+d. You can access the website on LBR link. To do so click on the **+ button** on top of your terminal, select option Select port to view on Host 1, and after adding **port 80** click on **Display Port**.
+
+### Solution
+
+```bash
+# Remote copy ROOT.war from Jmp Server to App server 1
+scp /tmp/ROOT.war tony@stapp01:/tmp
+
+# SSH to app server 1 and switch to root user
+ssh tony@stapp01
+
+sudo su -
+
+# Install tomcat server
+yum install -y tomcat
+
+# To meet requirement b, we need to edit server.xml file of tomcat server and modify the port number of http conectors
+
+vi /usr/share/tomcat/conf/server.xml
+
+# Change port to 5001 as per requirement
+
+<Connector port="5001" protocol="HTTP/1.1" 
+            connectionTimeout="20000" 
+            redirectPort="8443" />
+
+<Connector executor="tomcatThreadPool"
+            port="5001" protocol="HTTP/1.1" 
+            connectionTimeout="20000" 
+            redirectPort="8443" />
+
+# Copy ROOT.war to tomcat root directory
+cp /tmp/ROOT.war /usr/share/tomcat/webapps
+
+# Start tomcat server and check its status
+systemctl start tomcat && systemctl enable tomcat && systemctl status tomcat
+
+# From Jump Server, check the lbr link or verify it as per steps given in option d of requirement
+curl -i stlb01:80
+
+## You should see a "Welcome to xfusion industries" message
 ```
