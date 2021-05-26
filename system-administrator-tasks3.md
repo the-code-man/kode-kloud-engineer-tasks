@@ -7,6 +7,8 @@
 - [Task 38 - Install and Configure SFTP](#install-and-configure-sftp)
 - [Task 39 - Install and Configure PostgreSQL](#install-and-configure-postgresql)
 - [TASK 40 - Install and Configure Tomcat Server](#install-and-configure-tomcat-server)
+- [TASK 41 - Linux Network Services](#Linux-network-services)
+
 
 ## PAM Authentication For Apache
 
@@ -462,4 +464,82 @@ systemctl start tomcat && systemctl enable tomcat && systemctl status tomcat
 curl -i stlb01:80
 
 ## You should see a "Welcome to xfusion industries" message
+```
+
+## Linux Network Services
+
+Our monitoring tool has reported an issue in Stratos Datacenter. One of our app servers has an issue, as its Apache service is not reachable on port 5002 (which is our Apache port). The service itself could be down, the firewall could be at fault, or something else could be causing the issue.
+
+Use tools like telnet, netstat, etc. to find and fix the issue. Also make sure Apache is reachable from the jump host without compromising any security settings.
+
+### Solution
+
+```bash
+## Try connecting to all app servers and check which one has connectivity issue.
+telnet stapp01 5002
+# Connection was unsuccessful
+
+telnet stapp02 5002
+# Connected successfully
+
+telnet stapp03 5002
+# Connected successfully
+
+# SSH into app server 1 and switch to root user
+ssh tony@stapp01
+sudo su -
+
+# Check status of Apache service
+systemctl status httpd
+
+## In my case, this service was not started. So I tried starting it
+systemctl start httpd && systemctl status httpd
+
+### log showed that the port which apache service was trying to bind to was already in use by some other service
+
+# Run netstat command
+netstat -tulnp         # ref - https://www.tecmint.com/20-netstat-commands-for-linux-network-management/
+# This will display a list of services along with their PID
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       User       Inode      PID/Program name    
+...
+tcp        0      0 127.0.0.1:5002          0.0.0.0:*               LISTEN      0          44280      357/sendmail: accep 
+...
+
+# Shutdown the service that was bound to the port which apache was listening on
+kill -9 357
+
+# Try starting apache service again...
+systemctl start httpd && systemctl status httpd
+
+## This time the service start but log showed there was still an error --> "Could not reliably determine the server's fully qualified domain name, using .... Set 'ServerName' directly..." 
+## The same error was getting displayed during the first attempt to start apache service.
+
+# So, edit http conf and set ServerName (it will be commented)
+vi /etc/httpd/conf/httpd.conf
+
+# Find ServerName and add this line after the comment
+ServerName 172.16.238.10:5002
+
+# Try starting apache service again...
+systemctl start httpd && systemctl status httpd
+
+## This time the service started successfully.
+
+# Try establishing telnet connection from Jump host again
+telnet stapp01 5002
+
+# No luck... (Now I was clueless, so check kodekloud forum and got to know that firewall is blocking the request)
+iptables -L INPUT -nv       # https://linux.die.net/man/8/iptables
+
+# We will see that stapp01 is blocking all connections. So we need to insert a new rule to allow traffic to the specified port
+iptables -I INPUT -p tcp --destination-port 5002 -j ACCEPT
+
+services save iptables
+iptables-save
+
+# Try establishing telnet connection from Jump host again
+telnet stapp01 5002
+
+## Connection is successful this time.
 ```

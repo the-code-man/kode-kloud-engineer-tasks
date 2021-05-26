@@ -468,7 +468,7 @@ systemctl start httpd
 # Check status
 systemctl status httpd
 
-$ optional but also useful
+# optional but also useful
 systemctl list-unit-files | grep httpd
 
 # Exit the server
