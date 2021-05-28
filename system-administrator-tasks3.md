@@ -8,6 +8,7 @@
 - [Task 39 - Install and Configure PostgreSQL](#install-and-configure-postgresql)
 - [TASK 40 - Install and Configure Tomcat Server](#install-and-configure-tomcat-server)
 - [TASK 41 - Linux Network Services](#Linux-network-services)
+- [Task 42 - Install and Configure DB Server](#install-and-configure-db-server)
 
 
 ## PAM Authentication For Apache
@@ -542,4 +543,96 @@ iptables-save
 telnet stapp01 5002
 
 ## Connection is successful this time.
+```
+
+## Install and Configure DB Server
+
+We recently migrated one of our WordPress websites from an old server to a new infrastructure in **Stratos Datacenter**. We have already setup LAMP, except for the database. We have also restored website code; however, we need to restore the database to make it work on the new infra. Please perform the below given steps on DB host:
+
+a. Install/Configure MariaDB server.
+
+b. Create a database with name **kodekloud_db2**.
+
+c. There is a DB dump on **jump_host** under location **/home/thor/db.sql**. Restore this database in newly created database.
+
+d. Create a user **kodekloud_top** and set any password you like.
+
+e. Grant full permissions to user **kodekloud_top** on database **kodekloud_db2**.
+
+f. Update database-related details in **/data/wp-config.php** file on storage server, which is our NFS server having a share **/data** mounted on each app server on location **/var/www/html**. (for more details about how to update WordPress config file please visit **https://wordpress.org/support/article/editing-wp-config-php/**)
+
+g. You can access the website on LBR link; to do so click on the + button on top of your terminal, select option **Select port to view on Host 1**, and after adding port 80 click on **Display Port**.
+
+### Solution
+
+```bash
+# Copy db dump file from Jump Server to db server
+scp /home/thor/db.sql peter@stdb01:/tmp
+
+## If copy failed then install openssh-clients on db server and return to jump server to copy the dump file again.
+ssh peter@stbd01
+sudo yum install -y openssh-clients
+##-------------##
+
+# SSH into db server and switch to root user
+sudo su -
+
+# Install & Start mariadb service
+yum install -y mariadb* 
+systemctl enable mariadb && systemctl start mariadb && systemctl status mariadb
+
+##----------------------------------------------------------------------------------------------------------------------##
+# mysql_secure_installation is a shell script available on Unix systems, and enables you to improve the security of your #
+# MariaDB installation in the following ways:                                                                            #
+#                                                                                                                        #
+# - You can set a password for root accounts.                                                                            #
+# - You can remove root accounts that are accessible from outside the local host.                                        #
+# - You can remove anonymous-user accounts.                                                                              #
+# - You can remove the test database, which by default can be accessed by anonymous users.                               #
+#                                                                                                                        #
+# Ref - https://mariadb.com/kb/en/mysql_secure_installation/
+##----------------------------------------------------------------------------------------------------------------------##
+mysql_secure_installation           # Optional, but good to run. 
+
+# Login to mariadb
+mysql -u root -p
+
+# Next set of commands has to be run on mariadb console
+CREATE DATABASE kodekloud_db2;
+CREATE USER 'kodekloud_top'@'localhost' IDENTIFIED BY 'db2user';
+GRANT ALL PRIVILEGES ON kodekloud_db2.* to 'kodekloud_top'@'%' IDENTIFIED BY 'db2user' WITH GRANT OPTION;       # Grant all privileges to user from any valid host
+FLUSH PRIVILEGES;           # Refresh Privileges
+exit;
+
+# Import data from db dump file
+mysql -u kodekloud_top  -p kodekloud_db2 < /tmp/db.sql
+
+# Restrict mariadb access to stdb01 server on port 3306
+vi /etc/my.cnf
+
+# Add the following line
+bind-address=172.16.239.10
+port=3306
+
+# Restart mariadb service
+systemctl restart mariadb && systemctl status mariadb
+
+# Verify
+mysql -u kodekloud_top -p -h localhost
+exit;
+
+mysql -u kodekloud_top -p -h stdb01
+show databases;                         # You should see your newly created database
+exit;
+
+# Following steps has to be performed on storage server
+ssh natasha@ststor01
+
+# Update the wordpress configuration to connect to mariadb server on db server
+sudo sed -i 's/dbname/kodekloud_db2/g' /data/wp-config.php
+sudo sed -i 's/dbuser/kodekloud_top/g' /data/wp-config.php
+sudo sed -i 's/dbpass/db2user/g' /data/wp-config.php
+sudo sed -i 's/dbhost/stdb01/g' /data/wp-config.php
+
+# click on the + button on top of your terminal, select option **Select port to view on Host 1**, and after adding port 80 click on **Display Port**
 ```
